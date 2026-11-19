@@ -1,17 +1,47 @@
 from pathlib import Path
+import hashlib
+import math
+import re
 from typing import Any
 
 import chromadb
-from sentence_transformers import SentenceTransformer
 
 from app.config import settings
 
 
+class LightweightEmbeddingModel:
+    """Deterministic hashed bag-of-words embeddings with no model download."""
+
+    dimensions = 512
+
+    def encode(self, texts: list[str], normalize_embeddings: bool = False) -> Any:
+        vectors = []
+        token_pattern = re.compile(r"[^\w]+", re.UNICODE)
+        for text in texts:
+            vector = [0.0] * self.dimensions
+            tokens = [
+                token.lower()
+                for token in token_pattern.split(text)
+                if len(token) >= 2
+            ]
+            for token in tokens:
+                digest = hashlib.blake2b(token.encode("utf-8"), digest_size=8).digest()
+                index = int.from_bytes(digest[:4], "big") % self.dimensions
+                sign = -1.0 if digest[4] & 1 else 1.0
+                vector[index] += sign
+            if normalize_embeddings:
+                norm = math.sqrt(sum(value * value for value in vector))
+                if norm:
+                    vector = [value / norm for value in vector]
+            vectors.append(vector)
+        return vectors
+
+
 class RAGService:
-    """Small local RAG index using Sentence Transformers + ChromaDB."""
+    """Small local RAG index using lightweight hashed embeddings + ChromaDB."""
 
     def __init__(self) -> None:
-        self._model: SentenceTransformer | None = None
+        self._model: "LightweightEmbeddingModel | None" = None
         self._client = chromadb.PersistentClient(path=str(settings.absolute_chroma_dir))
         self._collection = self._client.get_or_create_collection(
             name="rafed_profile",
@@ -19,9 +49,9 @@ class RAGService:
         )
 
     @property
-    def model(self) -> SentenceTransformer:
+    def model(self) -> "LightweightEmbeddingModel":
         if self._model is None:
-            self._model = SentenceTransformer(settings.embedding_model)
+            self._model = LightweightEmbeddingModel()
         return self._model
 
     def index_documents(self, documents: list[dict[str, str]]) -> int:
@@ -37,7 +67,7 @@ class RAGService:
             }
             for item in documents
         ]
-        embeddings = self.model.encode(texts, normalize_embeddings=True).tolist()
+        embeddings = self.model.encode(texts, normalize_embeddings=True)
 
         # Replace matching IDs so re-indexing an edited file updates its chunks.
         self._collection.upsert(
@@ -64,7 +94,7 @@ class RAGService:
                 {"filename": item["filename"], "source": source}
                 for item in documents
             ]
-            embeddings = self.model.encode(texts, normalize_embeddings=True).tolist()
+            embeddings = self.model.encode(texts, normalize_embeddings=True)
             self._collection.upsert(
                 ids=ids,
                 documents=texts,
@@ -81,7 +111,7 @@ class RAGService:
         if self._collection.count() == 0:
             return []
 
-        embedding = self.model.encode([query], normalize_embeddings=True).tolist()
+        embedding = self.model.encode([query], normalize_embeddings=True)
         result = self._collection.query(
             query_embeddings=embedding,
             n_results=min(top_k or settings.top_k, self._collection.count()),
