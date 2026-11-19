@@ -1,0 +1,32 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+
+# Local vector database and downloaded data
+backend/data/
+.cache/
+.cache_huggingface/
+
+# Temporary test and diagnostic output
+*.log
+*_result.txt
+backend_logs.txt
+ingest_output.txt
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
