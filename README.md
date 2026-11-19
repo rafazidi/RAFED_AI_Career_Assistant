@@ -115,6 +115,37 @@ python do_ingest.py
 - Avant un déploiement public, ajouter une limitation de débit, une politique de confidentialité, une validation renforcée des entrées et une protection contre les abus.
 - Ne mets pas de données personnelles sensibles dans la base documentaire.
 
+## 7. Hébergement gratuit recommandé
+
+Un déploiement gratuit simple consiste à servir le frontend sur GitHub Pages et l'API sur Hugging Face Spaces.
+
+### API FastAPI sur Hugging Face Spaces
+
+1. Crée un Hugging Face Space avec le SDK **Docker**.
+2. Pousse ce dépôt dans le dépôt du Space.
+3. Ajoute dans **Settings > Variables and secrets** :
+   - `FRONTEND_ORIGIN=https://rafazidi.github.io`
+   - `GITHUB_OWNER=rafazidi`
+   - `GITHUB_TOPIC=portfolio`
+   - `LLM_API_KEY=<ta clé>`
+   - `LLM_BASE_URL=<l'URL OpenAI-compatible>`
+   - `LLM_MODEL=<le nom du modèle>`
+4. Le `Dockerfile` reconstruit automatiquement l'index depuis `knowledge_base/` puis démarre l'API sur le port `7860`.
+5. Après le démarrage, vérifie `https://<utilisateur>-<nom-du-space>.hf.space/health`.
+
+Hugging Face peut mettre le Space en veille après une période d'inactivité. Le premier démarrage après veille peut prendre plusieurs minutes à cause du chargement du modèle d'embeddings.
+
+### Frontend sur GitHub Pages
+
+1. Ouvre **Settings > Pages** du dépôt GitHub.
+2. Sélectionne **GitHub Actions** comme source.
+3. Dans **Settings > Secrets and variables > Actions > Variables**, ajoute `VITE_API_URL` avec l'URL publique du Space, sans `/` final.
+4. Pousse les modifications sur la branche `main`.
+5. Le workflow [deploy-pages.yml](.github/workflows/deploy-pages.yml) construit et publie automatiquement le frontend.
+6. L'adresse sera `https://rafazidi.github.io/RAFED_AI_Career_Assistant/`.
+
+Remarque : les offres gratuites peuvent changer de quota ou de modèle d'utilisation. Vérifie les conditions du fournisseur choisi avant une publication.
+
 ## Structure
 
 ```text
