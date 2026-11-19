@@ -26,6 +26,7 @@ const copy = {
     projectsLoading: 'Loading public GitHub projects…',
     projectsEmpty: 'No public repositories with the “portfolio” topic were found. Add this topic to repositories you want to show.',
     projectsError: 'GitHub projects could not be loaded. Please try again later.',
+    projectsRetry: 'Retry',
     noDescription: 'No project description provided.',
     repository: 'GitHub repository',
     skills: 'Tools & technologies',
@@ -51,6 +52,7 @@ const copy = {
     projectsLoading: 'Chargement des projets GitHub publics…',
     projectsEmpty: 'Aucun dépôt public avec le topic « portfolio » trouvé. Ajoutez ce topic aux dépôts que vous souhaitez afficher.',
     projectsError: 'Impossible de charger les projets GitHub. Veuillez réessayer plus tard.',
+    projectsRetry: 'Réessayer',
     noDescription: 'Aucune description du projet disponible.',
     repository: 'Dépôt GitHub',
     skills: 'Outils & technologies',
@@ -74,29 +76,54 @@ export default function App() {
   const [projects, setProjects] = useState<Project[]>([])
   const [projectsLoading, setProjectsLoading] = useState(true)
   const [projectsError, setProjectsError] = useState(false)
+  const [projectsRetry, setProjectsRetry] = useState(0)
   const t = copy[language]
 
   useEffect(() => {
     let active = true
 
     async function loadProjects() {
+      const retryDelays = [2000, 5000, 10000]
+      for (let attempt = 0; attempt <= retryDelays.length; attempt += 1) {
+        if (!active) return
+        try {
+          const response = await fetch(`${API_URL}/api/projects`)
+          if (!response.ok) throw new Error('GitHub project request failed')
+          const data: Project[] = await response.json()
+          if (active) {
+            setProjects(data)
+            setProjectsError(false)
+          }
+          return
+        } catch {
+          if (attempt === retryDelays.length) {
+            if (active) setProjectsError(true)
+            return
+          }
+          await new Promise((resolve) => window.setTimeout(resolve, retryDelays[attempt]))
+        }
+      }
+    }
+
+    async function loadProjectsAndFinish() {
       try {
-        const response = await fetch(`${API_URL}/api/projects`)
-        if (!response.ok) throw new Error('GitHub project request failed')
-        const data: Project[] = await response.json()
-        if (active) setProjects(data)
-      } catch {
-        if (active) setProjectsError(true)
+        await loadProjects()
       } finally {
         if (active) setProjectsLoading(false)
       }
     }
 
-    void loadProjects()
+    void loadProjectsAndFinish()
     return () => {
       active = false
     }
-  }, [])
+  }, [projectsRetry])
+
+  function retryProjects() {
+    setProjectsError(false)
+    setProjectsLoading(true)
+    setProjectsRetry((attempt) => attempt + 1)
+  }
 
   async function sendMessage(event?: FormEvent, suggested?: string) {
     event?.preventDefault()
@@ -186,7 +213,7 @@ export default function App() {
           <h2>{t.projects}</h2>
           <div className="project-list">
             {projectsLoading && <p className="project-status">{t.projectsLoading}</p>}
-            {projectsError && <p className="project-status" role="alert">{t.projectsError}</p>}
+            {projectsError && <p className="project-status" role="alert">{t.projectsError} <button type="button" onClick={retryProjects}>{t.projectsRetry}</button></p>}
             {!projectsLoading && !projectsError && projects.length === 0 && <p className="project-status">{t.projectsEmpty}</p>}
             {projects.map((project, index) => (
               <article className="project-card" key={project.full_name}>
