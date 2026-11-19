@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: rafed-ai-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: FRONTEND_ORIGIN
+        value: https://rafazidi.github.io
+      - key: CHROMA_DIR
+        value: ./backend/data/chroma
+      - key: KNOWLEDGE_BASE_DIR
+        value: ./knowledge_base
+      - key: GITHUB_OWNER
+        value: rafazidi
+      - key: GITHUB_TOPIC
+        value: portfolio
+      - key: LLM_API_KEY
+        sync: false
+      - key: LLM_BASE_URL
+        value: https://api.groq.com/openai/v1
+      - key: LLM_MODEL
+        value: llama-3.3-70b-versatile
