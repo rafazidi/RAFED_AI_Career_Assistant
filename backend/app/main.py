@@ -8,7 +8,7 @@ from app.config import settings
 from app.schemas import ChatRequest, ChatResponse, ProjectItem, SourceItem
 from app.services.github import GitHubAPIError, GitHubProject, github_projects
 from app.services.llm import generate_answer, generation_is_configured
-from app.services.rag import rag_service
+from app.services.rag import load_knowledge_documents, rag_service
 
 
 _github_index_lock = Lock()
@@ -17,6 +17,9 @@ _github_index_signature: tuple[tuple[str, str, str, str, str], ...] | None = Non
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    documents = load_knowledge_documents(settings.absolute_knowledge_base_dir)
+    if documents:
+        rag_service.index_documents(documents)
     yield
 
 
